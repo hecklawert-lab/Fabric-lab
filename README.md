@@ -1,2 +1,2 @@
-# Fabric-lab
-Fabric laboratory
+# Fabric Laboratory
+This repo could contain chaincodes or fabric networks
