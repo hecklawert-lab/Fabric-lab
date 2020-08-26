@@ -1,5 +1,13 @@
 # Basic Hyperledger Fabric Network
 
+<p align="center">
+  <img
+      alt="Hyperledger Fabric"
+      src="https://www.hyperledger.org/wp-content/uploads/2016/09/logo_hl_new.png"
+      width="800"
+  />
+</p>
+
 ## About this network
 This is a basic hyperledger fabric network with:
 * 1 Org
