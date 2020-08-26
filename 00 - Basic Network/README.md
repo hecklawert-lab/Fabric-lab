@@ -4,7 +4,7 @@
 
 Steps to deploy the network
 
-### CA
+#### CA
 ```
 $ docker-compose up -d ca
 ```
