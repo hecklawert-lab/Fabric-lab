@@ -1,5 +1,13 @@
 # Basic Hyperledger Fabric Network
 
+## About this network
+This is a basic hyperledger fabric network with:
+* 1 Org
+    * 1 CA
+    * 1 Raft
+    * 1 Peer
+    * 1 CLI
+
 ## How to
 
 Steps to deploy the network
