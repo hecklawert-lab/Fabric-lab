@@ -1,0 +1,285 @@
+#
+#    @author      Hëck Lawert
+#    @githuh      https://github.com/hecklawert
+#    @date        25/08/2020
+#    @description Basic Fabric Network || 1 CA - 1 Raft - 1 Peer
+#
+
+version: "3.7"
+services:
+  ca:
+    image: hyperledger/fabric-ca:1.4.6
+    container_name: ca
+    networks:
+       slsaml_fabric:
+    ports:
+      - "7054:7054"
+    environment:
+      - FABRIC_CA_HOME=${FABRIC_CA_HOME}
+      - FABRIC_CA_SERVER_CA_NAME=${FABRIC_CA_SERVER_CA_NAME}
+      - FABRIC_CA_SERVER_TLS_ENABLED=${FABRIC_CA_SERVER_TLS_ENABLED}
+      - LICENSE=${LICENSE}
+      - FABRIC_CA_CLIENT_HOME=${FABRIC_CA_CLIENT_HOME}
+      - FABRIC_CA_CLIENT_URL=${FABRIC_CA_CLIENT_URL}
+      - CACORP_CN:=${CACORP_CN}
+      - CACORP_AFF=${CACORP_AFF}
+      - DISTINGUISHED_NAME=${DISTINGUISHED_NAME}
+      - PRE_DOMAIN=${PRE_DOMAIN}
+    volumes:
+      - "./org0/fabric-ca-server:/etc/hyperledger/fabric-ca-server"
+      - "./org0/crypto:/opt/crypto"
+
+    command:
+      - bash
+      - -c
+      - |
+        # Delete residual files and DB
+        rm -Rf /opt/crypto/msp/*
+        rm -Rf /etc/hyperledger/fabric-ca-server/msp/*
+        rm /etc/hyperledger/fabric-ca-server/fabric-ca-server.db
+        cp /etc/hyperledger/fabric-ca-server/config/* /etc/hyperledger/fabric-ca-server/
+        rm /etc/hyperledger/fabric-ca-server/ca-cert.pem
+
+        # Start CA
+        cd /etc/hyperledger/fabric-ca-server
+        fabric-ca-server start -b admin:adminpw &
+        sleep 5
+        mkdir -p /opt/crypto/msp /opt/crypto/msp/tlscacerts /opt/crypto/msp/admincerts
+        fabric-ca-client enroll --id.name admin -M /opt/crypto/msp --csr.cn admin --csr.hosts localhost,host.corp.$PRE_DOMAIN,peer1-org0 --csr.names "$DISTINGUISHED_NAME" -u http://admin:adminpw@localhost:7054
+        fabric-ca-client affiliation add org0
+        cp /opt/crypto/msp /opt/crypto/msp/signcerts/* /opt/crypto/msp/admincerts/
+        fabric-ca-client register --id.name admin-tls --id.type client --id.affiliation "$CACORP_AFF" --id.secret "NdckmlUAhTUP"
+        fabric-ca-client enroll -u "http://admin-tls:NdckmlUAhTUP@localhost:7054" --enrollment.profile tls -M /opt/crypto/tls --id.name admin-tls --csr.cn admin-tls --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,peer1.corp.$PRE_DOMAIN,host.corp.$PRE_DOMAIN,peer1-org0
+        echo "preparing admin tls"
+        mv /opt/crypto/tls/keystore/*_sk /opt/crypto/tls/server.key
+        mv /opt/crypto/tls/signcerts/cert.pem /opt/crypto/tls/server.crt
+        mv /opt/crypto/tls/tlscacerts/*.pem /opt/crypto/tls/tlsca-corp.crt
+        cp /opt/crypto/tls/tlsca-corp.crt /opt/crypto/msp/tlscacerts/
+        # usuario de aplicación admin
+        mkdir -p /opt/crypto/users/admin /opt/crypto/users/admin/msp /opt/crypto/users/admin/tls
+        fabric-ca-client register --id.name corp-admin --id.type client --id.affiliation "$CACORP_AFF" --id.secret "NdckmlUAhTUP"
+        fabric-ca-client enroll -u "http://corp-admin:NdckmlUAhTUP@localhost:7054" -M /opt/crypto/users/admin/msp --id.name corp-admin --csr.cn corp-admin --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,peer1.corp.$PRE_DOMAIN,host.corp.$PRE_DOMAIN,peer1-org0
+
+        # ========== peer1 ==========
+        fabric-ca-client register --id.name peer1-org0 --id.type peer --id.affiliation "$CACORP_AFF" --id.secret "NdckmlUAhTUP"
+        fabric-ca-client register --id.name peer1-org0-tls --id.type peer --id.affiliation "$CACORP_AFF" --id.secret "NdckmlUAhTUP"
+        fabric-ca-client register --id.name peer1-org0-admin --id.type client --id.affiliation "$CACORP_AFF" --id.secret "NdckmlUAhTUP"
+        rm -fr /opt/crypto/peers/peer1/*
+        mkdir -p /opt/crypto/peers/peer1/msp /opt/crypto/peers/peer1/tls /opt/crypto/peers/peer1/admin/msp /opt/crypto/peers/peer1/admin/tls
+        mkdir -p /opt/crypto/orderers/orderer1/msp /opt/crypto/orderers/orderer1/tls /opt/crypto/orderers/orderer1/admin
+        echo "Enroll de los usuarios de peer1 contra la CA Corp"
+        fabric-ca-client enroll -u "http://peer1-org0:NdckmlUAhTUP@localhost:7054" -M /opt/crypto/peers/peer1/msp --id.name peer1-org0 --csr.cn peer1-org0 --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,peer1.corp.$PRE_DOMAIN,host.corp.$PRE_DOMAIN,peer1-org0
+        fabric-ca-client enroll -u "http://peer1-org0-tls:NdckmlUAhTUP@localhost:7054" --enrollment.profile tls -M /opt/crypto/peers/peer1/tls --id.name peer1-org0-tls --csr.cn peer1-org0-tls --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,peer1.corp.$PRE_DOMAIN,host.corp.$PRE_DOMAIN,peer1-org0
+        fabric-ca-client enroll -u "http://peer1-org0-admin:NdckmlUAhTUP@localhost:7054" -M /opt/crypto/peers/peer1/admin/msp --id.name peer1-org0-admin --csr.cn peer1-org0-admin --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,peer1.corp.$PRE_DOMAIN,host.corp.$PRE_DOMAIN,peer1-org0
+        echo "preparing peer1-org0 tls"
+        mv /opt/crypto/peers/peer1/tls/keystore/*_sk /opt/crypto/peers/peer1/tls/server.key
+        mv /opt/crypto/peers/peer1/tls/signcerts/cert.pem /opt/crypto/peers/peer1/tls/server.crt
+        mv /opt/crypto/peers/peer1/tls/tlscacerts/*.pem /opt/crypto/peers/peer1/tls/tlsca-corp.crt
+        echo "preparing peer1-org0 msp"
+        mv /opt/crypto/peers/peer1/msp/cacerts/localhost-7054.pem /opt/crypto/peers/peer1/msp/cacerts/ca-corp.crt
+        mkdir /opt/crypto/peers/peer1/msp/admincerts
+        cp /opt/crypto/peers/peer1/admin/msp/signcerts/* /opt/crypto/peers/peer1/msp/admincerts/
+        mkdir -p /opt/crypto/peers/peer1/msp/tlscacerts
+        cp /opt/crypto/peers/peer1/tls/tls*.crt /opt/crypto/peers/peer1/msp/tlscacerts/
+        echo "preparing admin-peer1-org0 msp"
+        mkdir -p /opt/crypto/peers/peer1/admin/msp/tlscacerts /opt/crypto/peers/peer1/admin/msp/admincerts/
+        cp /opt/crypto/peers/peer1/admin/msp/signcerts/* /opt/crypto/peers/peer1/admin/msp/admincerts/
+        cp /opt/crypto/peers/peer1/tls/tls*.crt /opt/crypto/peers/peer1/admin/msp/tlscacerts/
+        
+        # ========== raft1 ==========
+        fabric-ca-client register --id.name raft1 --id.type peer --id.affiliation "$CACORP_AFF" --id.secret NdckmlUAhTUP
+        fabric-ca-client register --id.name raft1-tls --id.type peer --id.affiliation "$CACORP_AFF" --id.secret NdckmlUAhTUP
+        fabric-ca-client register --id.name raft1-admin --id.type client --id.affiliation "$CACORP_AFF" --id.secret NdckmlUAhTUP
+        echo "Enroll de los usuarios de raft1 contra la CA Corp"
+        fabric-ca-client enroll -u "http://raft1:NdckmlUAhTUP@localhost:7054" -M /opt/crypto/orderers/raft1/msp --id.name raft1 --csr.cn raft1 --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,raft1,orderer.int.corp.$PRE_DOMAIN,orderer.ext.corp.$PRE_DOMAIN,orderer.corp.$PRE_DOMAIN,raft1
+        fabric-ca-client enroll -u "http://raft1-tls:NdckmlUAhTUP@localhost:7054" --enrollment.profile tls -M /opt/crypto/orderers/raft1/tls --id.name raft1-tls --csr.cn raft1-tls --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,raft1,orderer.int.corp.$PRE_DOMAIN,orderer.ext.corp.$PRE_DOMAIN,orderer.corp.$PRE_DOMAIN,raft1
+        fabric-ca-client enroll -u "http://raft1-admin:NdckmlUAhTUP@localhost:7054" -M /opt/crypto/orderers/raft1/admin/msp --id.name raft1-admin --csr.cn raft1-admin --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,raft1,orderer.int.corp.$PRE_DOMAIN,orderer.ext.corp.$PRE_DOMAIN,orderer.corp.$PRE_DOMAIN,raft1
+        echo "Preparing raft1 tls. Renombrado de certificados tls de raft1"
+        mv /opt/crypto/orderers/raft1/tls/keystore/*_sk /opt/crypto/orderers/raft1/tls/server.key
+        mv /opt/crypto/orderers/raft1/tls/signcerts/cert.pem /opt/crypto/orderers/raft1/tls/server.crt
+        mv /opt/crypto/orderers/raft1/tls/tlscacerts/*.pem /opt/crypto/orderers/raft1/tls/tlsca-corp.crt
+        echo "Preparing raft1 msp. Renombrado de certificados msp de raft1"
+        mkdir -p /opt/crypto/orderers/raft1/msp/admincerts /opt/crypto/orderers/raft1/msp/tlscacerts
+        cp /opt/crypto/orderers/raft1/admin/msp/signcerts/* /opt/crypto/orderers/raft1/msp/admincerts/
+        # hago el mv para no dejar el .pem en la carpeta msp/cacerts del orderder
+        mv /opt/crypto/orderers/raft1/msp/cacerts/*.pem /opt/crypto/orderers/raft1/msp/cacerts/ca-corp.crt
+        # echo "Preparing raft1-admin msp. Renombrado de certificados de administrador de raft1"
+        mkdir -p /opt/crypto/orderers/raft1/admin/msp/tlscacerts /opt/crypto/orderers/raft1/admin/msp/admincerts
+        cp /opt/crypto/orderers/raft1/admin/msp/signcerts/* /opt/crypto/orderers/raft1/admin/msp/admincerts/
+        cp /opt/crypto/orderers/raft1/tls/tlsca-*.crt /opt/crypto/orderers/raft1/admin/msp/tlscacerts/
+        cp /opt/crypto/orderers/raft1/msp/cacerts/ca-*.crt /opt/crypto/orderers/raft1/admin/msp/cacerts/
+        
+        # ========== MSP orderer ==========
+        echo "Copia todos los certificados de todas las organizaciones y nodos del orderer (raft1) en el orderer"
+        rm -rf /opt/crypto/orgs
+        mkdir -p /opt/crypto/orgs/corp/msp /opt/crypto/orgs/corp/msp/admincerts /opt/crypto/orgs/corp/msp/cacerts /opt/crypto/orgs/corp/msp/tlscacerts
+        # === corp ===
+        cp -r /opt/crypto/msp/admincerts/* /opt/crypto/orgs/corp/msp/admincerts
+        cp -r /opt/crypto/msp/cacerts/* /opt/crypto/orgs/corp/msp/cacerts
+        cp -r /opt/crypto/msp/tlscacerts/* /opt/crypto/orgs/corp/msp/tlscacerts
+
+        tail -f /dev/null
+
+  orderer-genesis:
+      image: hyperledger/fabric-tools:1.4.6
+      container_name: orderer-genesis
+      ports:
+        - "7059:7059"
+      environment:
+        - ORDERER_GENERAL_LOCALMSPID=${ORDERER_GENERAL_LOCALMSPID}
+        - ORDERER_GENERAL_LOCALMSPDIR=/opt/crypto/msp
+        - ORDERER_GENERAL_GENESISMETHOD=${ORDERER_GENERAL_GENESISMETHOD}
+        - ORDERER_GENERAL_LEDGERTYPE=${ORDERER_GENERAL_LEDGERTYPE}
+        - FABRIC_CFG_PATH=/etc/hyperledger/fabric
+      volumes:
+        - "./org0/fabric-ca-server:/etc/hyperledger/fabric"
+        - "./org0/crypto:/opt/crypto"
+        - "./org0/genesis:/corp/genesis"
+      command:
+        - bash
+        - -c
+        - |
+          rm -rf /corp/genesis/* 
+          mkdir /corp/genesis 
+          echo "Creating Genesis Block"
+          configtxgen -configPath /etc/hyperledger/fabric/ -profile CorporationOrdererGenesis -channelID sys-channel -outputBlock /corp/genesis/genesis.block
+          echo "Creating Channels: querychannel"
+          configtxgen -configPath /etc/hyperledger/fabric/ -profile querychannel -outputCreateChannelTx /corp/genesis/querychannel.tx -channelID querychannel
+
+          echo "Updating Anchors querychannel"
+          configtxgen -configPath /etc/hyperledger/fabric/ -profile querychannel -outputAnchorPeersUpdate /corp/genesis/querychannel-corporationMSPanchors.tx -channelID querychannel -asOrg org0
+
+          tail -f /dev/null
+  raft1:
+      image: hyperledger/fabric-orderer:1.4.6
+      container_name: raft1
+      networks:
+         slsaml_fabric:
+      ports:
+        - "7050:7050"
+        - "8443:8443"
+      environment:
+        - FABRIC_CFG_PATH=${FABRIC_CFG_PATH}
+        - FABRIC_LOGGING_SPEC=${FABRIC_LOGGING_SPEC}
+        - ORDERER_GENERAL_LOGLEVEL=${ORDERER_GENERAL_LOGLEVEL}
+        - ORDERER_GENERAL_GENESISFILE=${ORDERER_GENERAL_GENESISFILE}
+        - ORDERER_GENERAL_LISTENADDRESS=${ORDERER_GENERAL_LISTENADDRESS}
+        - ORDERER_GENERAL_TLS_ENABLED=${ORDERER_GENERAL_TLS_ENABLED}
+        - ORDERER_GENERAL_TLS_PRIVATEKEY=${ORDERER_GENERAL_TLS_PRIVATEKEY}
+        - ORDERER_GENERAL_TLS_CERTIFICATE=${ORDERER_GENERAL_TLS_CERTIFICATE}
+        - ORDERER_GENERAL_TLS_ROOTCAS=${ORDERER_GENERAL_TLS_ROOTCAS}
+        - ORDERER_GENERAL_TLS_CLIENTAUTHREQUIRED=${ORDERER_GENERAL_TLS_CLIENTAUTHREQUIRED}
+        - ORDERER_GENERAL_CLUSTER_CLIENTCERTIFICATE=/opt/crypto/tls/server.crt
+        - ORDERER_GENERAL_CLUSTER_CLIENTPRIVATEKEY=/opt/crypto/tls/server.key
+        - ORDERER_GENERAL_CLUSTER_ROOTCAS=${ORDERER_GENERAL_CLUSTER_ROOTCAS}
+        - ORDERER_OPERATIONS_LISTENADDRESS=0.0.0.0:8443
+        - ORDERER_METRICS_PROVIDER=prometheus
+        - ORDERER_OPERATIONS_TLS_ENABLED=${ORDERER_OPERATIONS_TLS_ENABLED}
+        - ORDERER_OPERATIONS_TLS_PRIVATEKEY=${ORDERER_OPERATIONS_TLS_PRIVATEKEY}
+        - ORDERER_OPERATIONS_TLS_ROOTCAS=${ORDERER_OPERATIONS_TLS_ROOTCAS}
+        - ORDERER_OPERATIONS_TLS_CERTIFICATE=${ORDERER_OPERATIONS_TLS_CERTIFICATE}
+        - ORDERER_OPERATIONS_TLS_CLIENTROOTCAS=${ORDERER_OPERATIONS_TLS_CLIENTROOTCAS}
+        - ORDERER_GENERAL_LOCALMSPDIR=${ORDERER_GENERAL_LOCALMSPDIR}
+        - ORDERER_GENERAL_LOCALMSPID=${ORDERER_GENERAL_LOCALMSPID}
+        - ORDERER_GENERAL_GENESISMETHOD=${ORDERER_GENERAL_GENESISMETHOD}
+        - ORDERER_GENERAL_LEDGERTYPE=${ORDERER_GENERAL_LEDGERTYPE}
+      volumes:
+        - "./org0/fabric-ca-server:/etc/hyperledger/fabric-ca-server"
+        - "./org0/crypto/orderers:/opt/orderer"
+        - "./org0/crypto/orderers/raft1/:/opt/crypto"
+        - "./org0/genesis:/corp/genesis"
+      command:
+        - bash
+        - -c
+        - |
+          echo "Starting Raft1..."
+          cp /etc/hyperledger/fabric-ca-server/configtx.yaml /etc/hyperledger/fabric/
+          orderer
+  peer1-org0:
+      logging:
+        options:
+          max-size: 5m
+      image: hyperledger/fabric-peer:1.4.6
+      container_name: peer1-org0
+      networks:
+         slsaml_fabric:
+      ports:
+        - "7051:7051"
+        - "7052:7052"
+        - "9443:9443"
+      environment:
+        # peer1 env vars
+        - CORE_PEER_ID=${CORE_PEER1_ID}
+        - CORE_PEER_ADDRESS=${CORE_PEER1_ADDRESS}
+        - CORE_PEER_CHAINCODEADDRESS=${CORE_PEER1_CHAINCODEADDRESS}
+        # general env vars
+        - CORE_OPERATIONS_LISTENADDRESS=0.0.0.0:9443  # operation RESTful API
+        - CORE_METRICS_PROVIDER=prometheus  # prometheus
+        - CORE_PEER_MSPCONFIGPATH=${CORE_PEER_MSPCONFIGPATH}
+        - CORE_PEER_LOCALMSPID=${CORE_PEER_LOCALMSPID}
+        - FABRIC_LOGGING_SPEC=${FABRIC_LOGGING_SPEC}
+        - CORE_PEER_CHAINCODELISTENADDRESS=${CORE_PEER_CHAINCODELISTENADDRESS}
+        - CORE_PEER_GOSSIP_EXTERNALENDPOINT=${CORE_PEER_GOSSIP_EXTERNALENDPOINT}
+        - CORE_PEER_GOSSIP_ORGLEADER=${CORE_PEER_GOSSIP_ORGLEADER}
+        - CORE_PEER_GOSSIP_USELEADERELECTION=${CORE_PEER_GOSSIP_USELEADERELECTION}
+        - CORE_PEER_TLS_ENABLED=${CORE_PEER_TLS_ENABLED}
+        - CORE_PEER_TLS_CERT_FILE=${CORE_PEER_TLS_CERT_FILE}
+        - CORE_PEER_TLS_KEY_FILE=${CORE_PEER_TLS_KEY_FILE}
+        - CORE_PEER_TLS_ROOTCERT_FILE=${CORE_PEER_TLS_ROOTCERT_FILE}
+        - CORE_PEER_PROFILE_ENABLED=${CORE_PEER_PROFILE_ENABLED}
+        - FABRIC_CFG_PATH=${FABRIC_CFG_PATH}
+        - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=${CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE}
+        - CORE_VM_ENDPOINT=${CORE_VM_ENDPOINT}
+        - CORE_VM_DOCKER_ATTACHSTDOUT=${CORE_VM_DOCKER_ATTACHSTDOUT}
+        - LICENSE=${LICENSE}
+      volumes:
+        - "./org0/fabric-ca-server:/etc/hyperledger/fabric-ca-server"
+        - "./org0/crypto/msp:/opt/crypto/admin/mspadmin"
+        - "./org0/crypto/peers/peer1:/opt/crypto"
+        - "./org0/genesis:/opt/genesis"
+        - "./org0/production/peer1:/var/hyperledger/production"
+        - "./org0/chaincode/:/opt/gopath/src/github.com/"
+        - "/var/run/:/host/var/run/"
+      command:
+        - bash
+        - -c
+        - |
+          cp /etc/hyperledger/fabric-ca-server/configtx.yaml /etc/hyperledger/fabric/
+          peer node start
+  cli-corp:
+      image: hyperledger/fabric-tools:1.4.6
+      container_name: cli-corp
+#      extends:
+#        file:   extrahosts.yaml
+#        service: extrahosts
+      networks:
+         slsaml_fabric:
+#        slsaml:
+#          ipv4_address: 192.17.0.109
+      environment:
+        # peer1 env vars
+        - CORE_PEER_ID=peer1-org0
+#        - CORE_PEER_ADDRESS=peer1.corp.slsfabric.blockchaincoe.sandigital.innaacc.dev.corp:7051
+        - CORE_PEER_ADDRESS=peer1-org0:7051
+        - CORE_PEER_MSPCONFIGPATH=/opt/crypto/peers/peer1/msp/admin/
+        # general env vars
+        - CORE_PEER_TLS_ENABLED=${CORE_PEER_TLS_ENABLED}
+        - CORE_PEER_TLS_CERT_FILE=${CORE_PEER_TLS_CERT_FILE}
+        - CORE_PEER_TLS_KEY_FILE=${CORE_PEER_TLS_KEY_FILE}
+        - CORE_PEER_TLS_ROOTCERT_FILE=${CORE_PEER_TLS_ROOTCERT_FILE}
+        - GOPATH=${GOPATH}
+        - FABRIC_LOGGING_SPEC=${FABRIC_LOGGING_SPEC}
+        - CORE_PEER_ADDRESSAUTODETECT=${CORE_PEER_ADDRESSAUTODETECT}
+        - CORE_PEER_LOCALMSPID=${CORE_PEER_LOCALMSPID}
+      volumes:
+        - "/org0/crypto:/opt/crypto/admin"
+        - "/org0/chaincode/:/opt/gopath/src/github.com/"
+      command:
+        - bash
+        - -c
+        - |
+          tail -f /dev/null
+networks:
+  slsaml_fabric:
+    driver: bridge
+    name: slsaml_fabric

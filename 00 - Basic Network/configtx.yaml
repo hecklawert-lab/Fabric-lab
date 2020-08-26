@@ -1,0 +1,140 @@
+---
+    Organizations:
+        - &org0
+            Name: org0
+            ID: org0MSP
+            MSPDir: /opt/crypto/orgs/corp/msp/
+            Policies:
+                Readers:
+                    Type: Signature
+                    Rule: "OR('org0MSP.member')"
+                Writers:
+                    Type: Signature
+                    Rule: "OR('org0MSP.member')"
+                Admins:
+                    Type: Signature
+                    Rule: "OR('org0MSP.admin')"
+            AnchorPeers:
+                - Host: peer1-org0
+                  Port: 7051
+
+    Capabilities:
+        Channel: &ChannelCapabilities
+            V1_4_2: true
+        Orderer: &OrdererCapabilities
+            V1_1: true
+        Application: &ApplicationCapabilities
+            V1_4_2: true
+            V1_3: false
+            V1_2: false
+            V1_1: false
+    Application: &ApplicationDefaults
+        Organizations:
+        Policies: &ApplicationDefaultPolicies
+            Readers:
+                Type: ImplicitMeta
+                Rule: "ANY Readers"
+            Writers:
+                Type: ImplicitMeta
+                Rule: "ANY Writers"
+            Admins:
+                Type: ImplicitMeta
+                Rule: "ANY Admins"
+        Capabilities:
+            <<: *ApplicationCapabilities
+    Orderer: &OrdererDefaults
+        OrdererType: solo
+        Addresses:
+            - raft1:7050
+        BatchTimeout: 2s
+        BatchSize:
+            MaxMessageCount: 10
+            AbsoluteMaxBytes: 99 MB
+            PreferredMaxBytes: 512 KB
+        Kafka:
+            Brokers:
+                - 127.0.0.1:9092
+        Organizations:
+        Policies:
+            Readers:
+                Type: ImplicitMeta
+                Rule: "ANY Readers"
+            Writers:
+                Type: ImplicitMeta
+                Rule: "ANY Writers"
+            Admins:
+                Type: ImplicitMeta
+                Rule: "ANY Admins"
+            BlockValidation:
+                Type: ImplicitMeta
+                Rule: "ANY Writers"
+    Channel: &ChannelDefaults
+        Policies:
+            Readers:
+                Type: ImplicitMeta
+                Rule: "ANY Readers"
+            Writers:
+                Type: ImplicitMeta
+                Rule: "ANY Writers"
+            Admins:
+                Type: ImplicitMeta
+                Rule: "ANY Admins"
+        Capabilities:
+            <<: *ChannelCapabilities
+    Profiles:
+        CorporationOrdererGenesis:
+            <<: *ChannelDefaults
+            Capabilities:
+                <<: *ChannelCapabilities
+            Orderer:
+                <<: *OrdererDefaults
+                OrdererType: etcdraft
+                EtcdRaft:
+                    Consenters:
+                    - Host: raft1
+                      Port: 7050
+                      ClientTLSCert: /opt/crypto/orderers/raft1/tls/server.crt
+                      ServerTLSCert: /opt/crypto/orderers/raft1/tls/server.crt
+                Addresses:
+                    - raft1:7050
+                Organizations:
+                - *org0
+                Capabilities:
+                    <<: *OrdererCapabilities
+            Application:
+                <<: *ApplicationDefaults
+                Organizations:
+                - <<: *org0
+            Consortiums:
+                AMLConsortium:
+                    Organizations:
+                        - *org0
+
+        CorporationOrdererGenesisSolo:
+          <<: *ChannelDefaults
+          Capabilities:
+              <<: *ChannelCapabilities
+          Orderer:
+              <<: *OrdererDefaults
+              OrdererType: solo
+              Organizations:
+              - *org0
+              Capabilities:
+                  <<: *OrdererCapabilities
+          Application:
+              <<: *ApplicationDefaults
+              Organizations:
+              - <<: *org0
+          Consortiums:
+              AMLConsortium:
+                  Organizations:
+                      - *org0
+        querychannel:
+            Consortium: AMLConsortium
+            <<: *ChannelDefaults
+            Application:
+                <<: *ApplicationDefaults
+                Organizations:
+                    - *org0
+                Capabilities:
+                    <<: *ApplicationCapabilities
