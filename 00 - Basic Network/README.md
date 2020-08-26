@@ -34,6 +34,11 @@ $ docker-compose up -d raft1
 $ docker-compose up -d peer1-org0
 ```
 
+### CLI
+```
+$ docker-compose up -d cli
+```
+
 ## Shutdown the network
 Just run the following script
 ```

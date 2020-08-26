@@ -50,12 +50,12 @@ services:
         cp /opt/crypto/msp /opt/crypto/msp/signcerts/* /opt/crypto/msp/admincerts/
         fabric-ca-client register --id.name admin-tls --id.type client --id.affiliation "$CACORP_AFF" --id.secret "NdckmlUAhTUP"
         fabric-ca-client enroll -u "http://admin-tls:NdckmlUAhTUP@localhost:7054" --enrollment.profile tls -M /opt/crypto/tls --id.name admin-tls --csr.cn admin-tls --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,peer1.corp.$PRE_DOMAIN,host.corp.$PRE_DOMAIN,peer1-org0
-        echo "preparing admin tls"
+        echo "Preparing admin tls"
         mv /opt/crypto/tls/keystore/*_sk /opt/crypto/tls/server.key
         mv /opt/crypto/tls/signcerts/cert.pem /opt/crypto/tls/server.crt
         mv /opt/crypto/tls/tlscacerts/*.pem /opt/crypto/tls/tlsca-corp.crt
         cp /opt/crypto/tls/tlsca-corp.crt /opt/crypto/msp/tlscacerts/
-        # usuario de aplicación admin
+        # Admin user of application
         mkdir -p /opt/crypto/users/admin /opt/crypto/users/admin/msp /opt/crypto/users/admin/tls
         fabric-ca-client register --id.name corp-admin --id.type client --id.affiliation "$CACORP_AFF" --id.secret "NdckmlUAhTUP"
         fabric-ca-client enroll -u "http://corp-admin:NdckmlUAhTUP@localhost:7054" -M /opt/crypto/users/admin/msp --id.name corp-admin --csr.cn corp-admin --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,peer1.corp.$PRE_DOMAIN,host.corp.$PRE_DOMAIN,peer1-org0
@@ -67,21 +67,21 @@ services:
         rm -fr /opt/crypto/peers/peer1/*
         mkdir -p /opt/crypto/peers/peer1/msp /opt/crypto/peers/peer1/tls /opt/crypto/peers/peer1/admin/msp /opt/crypto/peers/peer1/admin/tls
         mkdir -p /opt/crypto/orderers/orderer1/msp /opt/crypto/orderers/orderer1/tls /opt/crypto/orderers/orderer1/admin
-        echo "Enroll de los usuarios de peer1 contra la CA Corp"
+        echo "Enroll users to CA"
         fabric-ca-client enroll -u "http://peer1-org0:NdckmlUAhTUP@localhost:7054" -M /opt/crypto/peers/peer1/msp --id.name peer1-org0 --csr.cn peer1-org0 --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,peer1.corp.$PRE_DOMAIN,host.corp.$PRE_DOMAIN,peer1-org0
         fabric-ca-client enroll -u "http://peer1-org0-tls:NdckmlUAhTUP@localhost:7054" --enrollment.profile tls -M /opt/crypto/peers/peer1/tls --id.name peer1-org0-tls --csr.cn peer1-org0-tls --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,peer1.corp.$PRE_DOMAIN,host.corp.$PRE_DOMAIN,peer1-org0
         fabric-ca-client enroll -u "http://peer1-org0-admin:NdckmlUAhTUP@localhost:7054" -M /opt/crypto/peers/peer1/admin/msp --id.name peer1-org0-admin --csr.cn peer1-org0-admin --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,peer1.corp.$PRE_DOMAIN,host.corp.$PRE_DOMAIN,peer1-org0
-        echo "preparing peer1-org0 tls"
+        echo "Preparing peer1-org0 tls"
         mv /opt/crypto/peers/peer1/tls/keystore/*_sk /opt/crypto/peers/peer1/tls/server.key
         mv /opt/crypto/peers/peer1/tls/signcerts/cert.pem /opt/crypto/peers/peer1/tls/server.crt
         mv /opt/crypto/peers/peer1/tls/tlscacerts/*.pem /opt/crypto/peers/peer1/tls/tlsca-corp.crt
-        echo "preparing peer1-org0 msp"
+        echo "Preparing peer1-org0 msp"
         mv /opt/crypto/peers/peer1/msp/cacerts/localhost-7054.pem /opt/crypto/peers/peer1/msp/cacerts/ca-corp.crt
         mkdir /opt/crypto/peers/peer1/msp/admincerts
         cp /opt/crypto/peers/peer1/admin/msp/signcerts/* /opt/crypto/peers/peer1/msp/admincerts/
         mkdir -p /opt/crypto/peers/peer1/msp/tlscacerts
         cp /opt/crypto/peers/peer1/tls/tls*.crt /opt/crypto/peers/peer1/msp/tlscacerts/
-        echo "preparing admin-peer1-org0 msp"
+        echo "Preparing admin-peer1-org0 msp"
         mkdir -p /opt/crypto/peers/peer1/admin/msp/tlscacerts /opt/crypto/peers/peer1/admin/msp/admincerts/
         cp /opt/crypto/peers/peer1/admin/msp/signcerts/* /opt/crypto/peers/peer1/admin/msp/admincerts/
         cp /opt/crypto/peers/peer1/tls/tls*.crt /opt/crypto/peers/peer1/admin/msp/tlscacerts/
@@ -90,20 +90,20 @@ services:
         fabric-ca-client register --id.name raft1 --id.type peer --id.affiliation "$CACORP_AFF" --id.secret NdckmlUAhTUP
         fabric-ca-client register --id.name raft1-tls --id.type peer --id.affiliation "$CACORP_AFF" --id.secret NdckmlUAhTUP
         fabric-ca-client register --id.name raft1-admin --id.type client --id.affiliation "$CACORP_AFF" --id.secret NdckmlUAhTUP
-        echo "Enroll de los usuarios de raft1 contra la CA Corp"
+        echo "Enroll Raft users"
         fabric-ca-client enroll -u "http://raft1:NdckmlUAhTUP@localhost:7054" -M /opt/crypto/orderers/raft1/msp --id.name raft1 --csr.cn raft1 --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,raft1,orderer.int.corp.$PRE_DOMAIN,orderer.ext.corp.$PRE_DOMAIN,orderer.corp.$PRE_DOMAIN,raft1
         fabric-ca-client enroll -u "http://raft1-tls:NdckmlUAhTUP@localhost:7054" --enrollment.profile tls -M /opt/crypto/orderers/raft1/tls --id.name raft1-tls --csr.cn raft1-tls --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,raft1,orderer.int.corp.$PRE_DOMAIN,orderer.ext.corp.$PRE_DOMAIN,orderer.corp.$PRE_DOMAIN,raft1
         fabric-ca-client enroll -u "http://raft1-admin:NdckmlUAhTUP@localhost:7054" -M /opt/crypto/orderers/raft1/admin/msp --id.name raft1-admin --csr.cn raft1-admin --csr.names "$DISTINGUISHED_NAME" --csr.hosts localhost,raft1,orderer.int.corp.$PRE_DOMAIN,orderer.ext.corp.$PRE_DOMAIN,orderer.corp.$PRE_DOMAIN,raft1
-        echo "Preparing raft1 tls. Renombrado de certificados tls de raft1"
+        echo "Preparing raft1 tls. Rename certs"
         mv /opt/crypto/orderers/raft1/tls/keystore/*_sk /opt/crypto/orderers/raft1/tls/server.key
         mv /opt/crypto/orderers/raft1/tls/signcerts/cert.pem /opt/crypto/orderers/raft1/tls/server.crt
         mv /opt/crypto/orderers/raft1/tls/tlscacerts/*.pem /opt/crypto/orderers/raft1/tls/tlsca-corp.crt
-        echo "Preparing raft1 msp. Renombrado de certificados msp de raft1"
+        echo "Preparing raft1 msp. Rename msp certs of raft1"
         mkdir -p /opt/crypto/orderers/raft1/msp/admincerts /opt/crypto/orderers/raft1/msp/tlscacerts
         cp /opt/crypto/orderers/raft1/admin/msp/signcerts/* /opt/crypto/orderers/raft1/msp/admincerts/
         # hago el mv para no dejar el .pem en la carpeta msp/cacerts del orderder
         mv /opt/crypto/orderers/raft1/msp/cacerts/*.pem /opt/crypto/orderers/raft1/msp/cacerts/ca-corp.crt
-        # echo "Preparing raft1-admin msp. Renombrado de certificados de administrador de raft1"
+        # echo "Preparing raft1-admin msp. Rename admin raft1 certificates"
         mkdir -p /opt/crypto/orderers/raft1/admin/msp/tlscacerts /opt/crypto/orderers/raft1/admin/msp/admincerts
         cp /opt/crypto/orderers/raft1/admin/msp/signcerts/* /opt/crypto/orderers/raft1/admin/msp/admincerts/
         cp /opt/crypto/orderers/raft1/tls/tlsca-*.crt /opt/crypto/orderers/raft1/admin/msp/tlscacerts/
@@ -134,20 +134,20 @@ services:
       volumes:
         - "./org0/fabric-ca-server:/etc/hyperledger/fabric"
         - "./org0/crypto:/opt/crypto"
-        - "./org0/genesis:/corp/genesis"
+        - "./org0/genesis:/org0/genesis"
       command:
         - bash
         - -c
         - |
-          rm -rf /corp/genesis/* 
-          mkdir /corp/genesis 
+          rm -rf /org0/genesis/* 
+          mkdir /org0/genesis 
           echo "Creating Genesis Block"
-          configtxgen -configPath /etc/hyperledger/fabric/ -profile CorporationOrdererGenesis -channelID sys-channel -outputBlock /corp/genesis/genesis.block
+          configtxgen -configPath /etc/hyperledger/fabric/ -profile CorporationOrdererGenesis -channelID sys-channel -outputBlock /org0/genesis/genesis.block
           echo "Creating Channels: querychannel"
-          configtxgen -configPath /etc/hyperledger/fabric/ -profile querychannel -outputCreateChannelTx /corp/genesis/querychannel.tx -channelID querychannel
+          configtxgen -configPath /etc/hyperledger/fabric/ -profile querychannel -outputCreateChannelTx /org0/genesis/querychannel.tx -channelID querychannel
 
           echo "Updating Anchors querychannel"
-          configtxgen -configPath /etc/hyperledger/fabric/ -profile querychannel -outputAnchorPeersUpdate /corp/genesis/querychannel-corporationMSPanchors.tx -channelID querychannel -asOrg org0
+          configtxgen -configPath /etc/hyperledger/fabric/ -profile querychannel -outputAnchorPeersUpdate /org0/genesis/querychannel-corporationMSPanchors.tx -channelID querychannel -asOrg org0
 
           tail -f /dev/null
   raft1:
@@ -196,9 +196,6 @@ services:
           cp /etc/hyperledger/fabric-ca-server/configtx.yaml /etc/hyperledger/fabric/
           orderer
   peer1-org0:
-      logging:
-        options:
-          max-size: 5m
       image: hyperledger/fabric-peer:1.4.6
       container_name: peer1-org0
       networks:
@@ -245,24 +242,17 @@ services:
         - -c
         - |
           cp /etc/hyperledger/fabric-ca-server/configtx.yaml /etc/hyperledger/fabric/
-          peer node start
-  cli-corp:
+          peer node start 
+
+  cli:
       image: hyperledger/fabric-tools:1.4.6
-      container_name: cli-corp
-#      extends:
-#        file:   extrahosts.yaml
-#        service: extrahosts
+      container_name: cli-org0
       networks:
-         slsaml_fabric:
-#        slsaml:
-#          ipv4_address: 192.17.0.109
+         slsaml_fabric:      
       environment:
-        # peer1 env vars
         - CORE_PEER_ID=peer1-org0
-#        - CORE_PEER_ADDRESS=peer1.corp.slsfabric.blockchaincoe.sandigital.innaacc.dev.corp:7051
         - CORE_PEER_ADDRESS=peer1-org0:7051
         - CORE_PEER_MSPCONFIGPATH=/opt/crypto/peers/peer1/msp/admin/
-        # general env vars
         - CORE_PEER_TLS_ENABLED=${CORE_PEER_TLS_ENABLED}
         - CORE_PEER_TLS_CERT_FILE=${CORE_PEER_TLS_CERT_FILE}
         - CORE_PEER_TLS_KEY_FILE=${CORE_PEER_TLS_KEY_FILE}
@@ -272,13 +262,20 @@ services:
         - CORE_PEER_ADDRESSAUTODETECT=${CORE_PEER_ADDRESSAUTODETECT}
         - CORE_PEER_LOCALMSPID=${CORE_PEER_LOCALMSPID}
       volumes:
-        - "/org0/crypto:/opt/crypto/admin"
-        - "/org0/chaincode/:/opt/gopath/src/github.com/"
+        - "./org0/crypto/msp:/opt/crypto/admin/mspadmin"
+        - "./org0/crypto/peers/peer1:/opt/crypto"
+        - "./org0/chaincode/:/opt/gopath/src/github.com/"
+        - "./org0/genesis:/opt/genesis"
+        - "/var/run/:/host/var/run/"
       command:
         - bash
         - -c
         - |
-          tail -f /dev/null
+          export CORE_PEER_MSPCONFIGPATH=/opt/crypto/admin/mspadmin/
+          peer channel create -o raft1:7050 -c querychannel -f /opt/genesis/querychannel.tx --tls --cafile /opt/crypto/tls/tlsca-corp.crt
+          export CORE_PEER_MSPCONFIGPATH=/opt/crypto/admin/msp/
+          peer channel join -b querychannel.block
+          tail -f /dev/null        
 networks:
   slsaml_fabric:
     driver: bridge

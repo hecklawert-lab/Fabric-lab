@@ -1,7 +1,7 @@
 #!/bin/bash
 
-docker kill ca orderer-genesis raft1 peer1-org0 cli-corp
-docker rm ca orderer-genesis raft1 peer1-org0 cli-corp
+docker kill ca orderer-genesis raft1 peer1-org0 cli-org0
+docker rm ca orderer-genesis raft1 peer1-org0 cli-org0
 
 if [ -d "./org0" ] 
 then
